@@ -1,4 +1,4 @@
-FROM amd64/ubuntu:24.10 AS mapf-base
+FROM ubuntu:24.04 AS mapf-base
 
 WORKDIR /tmp
 

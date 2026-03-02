@@ -1,5 +1,6 @@
 #include "factory/solver_factory.h"
 
+#include "solvers/astar_solver.h"
 #include "solvers/bfs_solver.h"
 
 #include <memory>
@@ -11,6 +12,7 @@ SolverFactory::SolverFactory() {
     factory_map_[#NAME] = []() { return std::make_shared<SOLVER_CLS>(__VA_ARGS__); }
 
     REGISTER(bfs_solver, BFSSolver);
+    REGISTER(astar_solver, AStarSolver);
 
 #undef REGISTER
 }
