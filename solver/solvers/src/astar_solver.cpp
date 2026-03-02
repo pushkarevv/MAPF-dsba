@@ -152,9 +152,12 @@ models::MAPFSolution AStarSolver::FindSolution(const models::MAPFProblem& mapf_p
     open_set.push(OpenNode{start_h, 0, start_state});
     cost_to_come[start_state] = 0;
 
+    nodes_expanded_ = 0;
+
     while (!open_set.empty()) {
         auto current = std::move(open_set.top());
         open_set.pop();
+        ++nodes_expanded_;
 
         auto current_cost_it = cost_to_come.find(current.state);
         if (current_cost_it == cost_to_come.end() || current.g_score != current_cost_it->second) {

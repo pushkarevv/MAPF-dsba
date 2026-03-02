@@ -7,7 +7,7 @@ namespace mapf::models {
 
 AgentState::AgentState(AgentId agent_id, graph::NodeId node_id) :
     agent_id{std::move(agent_id)}, node_id{std::move(node_id)} {}
-     m
+
 AgentState::AgentState(proto::AgentState agent_state_proto) :
     agent_id{std::move(agent_state_proto.agent_id())},
     node_id{std::move(agent_state_proto.node_id())} {}
