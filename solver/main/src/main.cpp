@@ -1,4 +1,4 @@
-об#include "models/models.h"
+#include "models/models.h"
 #include "factory/solver_factory.h"
 
 #include <boost/program_options.hpp>

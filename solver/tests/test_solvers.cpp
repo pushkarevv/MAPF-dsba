@@ -1,5 +1,6 @@
 #include "solvers/astar_solver.h"
 #include "solvers/bfs_solver.h"
+#include "solvers/pibt_solver.h"
 
 #include "graph/graph.h"
 
@@ -15,7 +16,6 @@ using namespace mapf::graph;
 using namespace mapf::models;
 using namespace mapf::solver;
 
-// Builds a width x height grid graph with bidirectional edges
 Graph BuildGridGraph(uint32_t width, uint32_t height) {
     Nodes nodes;
     Edges edges;
@@ -38,7 +38,6 @@ Graph BuildGridGraph(uint32_t width, uint32_t height) {
     return Graph(std::move(nodes), std::move(edges));
 }
 
-// Runs both solvers on the same problem and collects metrics
 struct BenchmarkResult {
     size_t bfs_nodes_expanded;
     size_t astar_nodes_expanded;
@@ -90,7 +89,6 @@ void PrintBenchmark(const std::string& name, const BenchmarkResult& r) {
               << "  A*=" << r.astar_makespan << std::endl;
 }
 
-// Correctness tests from starter code (4 nodes, 2 agents)
 
 class MAPFProblemTest1 : public testing::Test {
   protected:
@@ -144,7 +142,6 @@ TEST_F(MAPFProblemTest2, AStarSolver) {
     ASSERT_VALID_SOLUTION(problem, solver.FindSolution(problem));
 }
 
-// Benchmark: small grid, minimal difference expected
 TEST(Benchmark, Grid3x3_2Agents) {
     auto graph = BuildGridGraph(3, 3);
     AgentTasks tasks{
@@ -165,23 +162,18 @@ TEST(Benchmark, Grid3x3_2Agents) {
     EXPECT_EQ(r.bfs_makespan, r.astar_makespan);
 }
 
-// Benchmark: corridor with a single side pocket (bottleneck)
-// 0 — 1 — 2 — 3 — 4 — 5 — 6 — 7
-//             |
-//             8
-// Agents swap ends: 0->7 and 7->0. Only node 8 allows them to pass.
 TEST(Benchmark, CorridorBottleneck_2Agents) {
     Nodes nodes;
     Edges edges;
     for (uint32_t i = 0; i < 9; ++i) {
         nodes.emplace(i, Node(i));
     }
-    // main corridor
+
     for (uint32_t i = 0; i < 7; ++i) {
         edges.emplace(Edge(i, i + 1));
         edges.emplace(Edge(i + 1, i));
     }
-    // side pocket at node 3
+
     edges.emplace(Edge(3, 8));
     edges.emplace(Edge(8, 3));
     auto graph = Graph(std::move(nodes), std::move(edges));
@@ -204,7 +196,6 @@ TEST(Benchmark, CorridorBottleneck_2Agents) {
     EXPECT_EQ(r.bfs_makespan, r.astar_makespan);
 }
 
-// Benchmark: 3 agents, larger state space
 TEST(Benchmark, Grid4x4_3Agents) {
     auto graph = BuildGridGraph(4, 4);
     AgentTasks tasks{
@@ -226,7 +217,6 @@ TEST(Benchmark, Grid4x4_3Agents) {
     EXPECT_EQ(r.bfs_makespan, r.astar_makespan);
 }
 
-// Benchmark: 4 agents, all doing diagonal swaps — hardest case
 TEST(Benchmark, Grid4x4_4Agents) {
     auto graph = BuildGridGraph(4, 4);
     AgentTasks tasks{
@@ -247,4 +237,98 @@ TEST(Benchmark, Grid4x4_4Agents) {
 
     EXPECT_LE(astar.GetNodesExpanded(), bfs.GetNodesExpanded());
     EXPECT_EQ(r.bfs_makespan, r.astar_makespan);
+}
+
+TEST_F(MAPFProblemTest1, PIBTSolver) {
+    PIBTSolver solver;
+    auto solution = solver.FindSolution(problem);
+    ASSERT_FALSE(solution.agent_paths.empty()) << "PIBT found no solution";
+    ASSERT_VALID_SOLUTION(problem, solution);
+}
+
+TEST_F(MAPFProblemTest2, PIBTSolver_Limitation) {
+    PIBTSolver solver;
+    auto solution = solver.FindSolution(problem);
+    EXPECT_TRUE(solution.agent_paths.empty())
+        << "PIBT is not expected to solve a tree (star graph)";
+}
+
+TEST(PIBT, Grid3x3_2Agents) {
+    auto graph = BuildGridGraph(3, 3);
+    AgentTasks tasks{
+        {0, {0, {0, 8}}},
+        {1, {1, {8, 0}}},
+    };
+    MAPFProblem problem(std::move(graph), std::move(tasks));
+
+    PIBTSolver solver;
+    auto solution = solver.FindSolution(problem);
+    ASSERT_FALSE(solution.agent_paths.empty()) << "PIBT found no solution";
+    ASSERT_VALID_SOLUTION(problem, solution);
+    std::cout << "\n--- PIBT 3x3 grid, 2 agents ---\n  makespan=" << solver.GetMakespan()
+              << std::endl;
+}
+
+TEST(PIBT, CorridorBottleneck_2Agents_Limitation) {
+    Nodes nodes;
+    Edges edges;
+    for (uint32_t i = 0; i < 9; ++i) {
+        nodes.emplace(i, Node(i));
+    }
+    for (uint32_t i = 0; i < 7; ++i) {
+        edges.emplace(Edge(i, i + 1));
+        edges.emplace(Edge(i + 1, i));
+    }
+    edges.emplace(Edge(3, 8));
+    edges.emplace(Edge(8, 3));
+    auto graph = Graph(std::move(nodes), std::move(edges));
+
+    AgentTasks tasks{
+        {0, {0, {0, 7}}},
+        {1, {1, {7, 0}}},
+    };
+    MAPFProblem problem(std::move(graph), std::move(tasks));
+
+    PIBTSolver solver;
+    auto solution = solver.FindSolution(problem);
+    EXPECT_TRUE(solution.agent_paths.empty())
+        << "PIBT is not expected to solve a tree (corridor with dead ends)";
+}
+
+TEST(PIBT, Grid4x4_4Agents) {
+    auto graph = BuildGridGraph(4, 4);
+    AgentTasks tasks{
+        {0, {0, {0, 15}}},
+        {1, {1, {15, 0}}},
+        {2, {2, {3, 12}}},
+        {3, {3, {12, 3}}},
+    };
+    MAPFProblem problem(std::move(graph), std::move(tasks));
+
+    PIBTSolver solver;
+    auto solution = solver.FindSolution(problem);
+    ASSERT_FALSE(solution.agent_paths.empty()) << "PIBT found no solution";
+    ASSERT_VALID_SOLUTION(problem, solution);
+    std::cout << "\n--- PIBT 4x4 grid, 4 agents ---\n  makespan=" << solver.GetMakespan()
+              << std::endl;
+}
+
+TEST(PIBT, Grid8x8_16Agents) {
+    auto graph = BuildGridGraph(8, 8);
+    AgentTasks tasks;
+    for (uint32_t k = 0; k < 16; ++k) {
+        tasks.emplace(k, AgentTask(k, {k, 63 - k}));
+    }
+    MAPFProblem problem(std::move(graph), std::move(tasks));
+
+    PIBTSolver solver;
+    auto t0 = std::chrono::high_resolution_clock::now();
+    auto solution = solver.FindSolution(problem);
+    auto t1 = std::chrono::high_resolution_clock::now();
+
+    ASSERT_FALSE(solution.agent_paths.empty()) << "PIBT found no solution";
+    ASSERT_VALID_SOLUTION(problem, solution);
+    std::cout << "\n--- PIBT 8x8 grid, 16 agents ---\n  makespan=" << solver.GetMakespan()
+              << "  time=" << std::chrono::duration<double, std::milli>(t1 - t0).count() << " ms"
+              << std::endl;
 }

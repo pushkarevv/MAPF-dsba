@@ -2,6 +2,7 @@
 
 #include "solvers/astar_solver.h"
 #include "solvers/bfs_solver.h"
+#include "solvers/pibt_solver.h"
 
 #include <memory>
 
@@ -13,6 +14,7 @@ SolverFactory::SolverFactory() {
 
     REGISTER(bfs_solver, BFSSolver);
     REGISTER(astar_solver, AStarSolver);
+    REGISTER(pibt_solver, PIBTSolver);
 
 #undef REGISTER
 }
