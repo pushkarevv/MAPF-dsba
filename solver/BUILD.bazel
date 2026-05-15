@@ -33,6 +33,17 @@ cc_binary(
     ],
 )
 
+cc_binary(
+    name = "export_solution",
+    srcs = ["tools/src/export_solution.cpp"],
+    deps = [
+        ":factory",
+        ":solvers",
+        "//graph",
+        "//models",
+    ],
+)
+
 cc_test(
     name = "solvers_tests",
     size = "large",
